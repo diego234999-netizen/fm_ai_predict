@@ -131,3 +131,31 @@ with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
             df_tracking.to_csv('tracking.csv', index=False)
             st.success("✅ 戰績已同步更新！")
             st.rerun()
+            # ==========================================
+# 📂 老闆專用後台：資料庫查看與備份
+# ==========================================
+st.divider()
+st.header("📂 資料庫管理與備份 (店長專用)")
+with st.expander("點我展開：查看並下載完整的雲端歷史資料庫"):
+    st.markdown("⚠️ **注意：** 免費伺服器休眠時可能會清除暫存資料，請記得定期點擊下方按鈕將資料下載備份到電腦中。")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("歷史訓練庫 (history.csv)")
+        st.dataframe(df_history, use_container_width=True)
+        st.download_button(
+            label="📥 下載歷史資料",
+            data=df_history.to_csv(index=False).encode('utf-8-sig'),
+            file_name='FamilyMart_History.csv',
+            mime='text/csv'
+        )
+        
+    with colb:
+        st.subheader("MAE 戰績庫 (tracking.csv)")
+        st.dataframe(df_tracking, use_container_width=True)
+        st.download_button(
+            label="📥 下載戰績資料",
+            data=df_tracking.to_csv(index=False).encode('utf-8-sig'),
+            file_name='FamilyMart_Tracking.csv',
+            mime='text/csv'
+        )
