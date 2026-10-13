@@ -118,13 +118,12 @@ with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
             df_history.to_csv('history.csv', index=False)
             st.success("✅ 歷史資料已同步！模型已自動重新訓練。")
             st.rerun()
-
-    # 刪除最後一筆的按鈕放在展開區內，但表單外
+            
     if st.button("🗑️ 刪除最後一筆歷史資料"):
         if not df_history.empty:
             df_history = df_history.iloc[:-1]
             df_history.to_csv('history.csv', index=False)
-            st.success("已成功刪除最後一筆資料！")
+            st.success("已成功刪除最後一筆歷史資料！")
             st.rerun()
 
 # 2. 新增 MAE 戰績
@@ -138,6 +137,13 @@ with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
             df_tracking.loc[len(df_tracking)] = [str(t_date), t_actual, t_predict]
             df_tracking.to_csv('tracking.csv', index=False)
             st.success("✅ 戰績已同步更新！")
+            st.rerun()
+            
+    if st.button("🗑️ 刪除最後一筆戰績資料"):
+        if not df_tracking.empty:
+            df_tracking = df_tracking.iloc[:-1]
+            df_tracking.to_csv('tracking.csv', index=False)
+            st.success("已成功刪除最後一筆戰績資料！")
             st.rerun()
 
 # ==========================================
