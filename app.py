@@ -118,14 +118,14 @@ with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
             df_history.to_csv('history.csv', index=False)
             st.success("✅ 歷史資料已同步！模型已自動重新訓練。")
             st.rerun()
-           
-    # 👇 請把下面這段加在剛才的表單外面 (注意縮排位置跟 with st.form 對齊)
-        if st.button("🗑️ 刪除最後一筆歷史資料"):
-            if not df_history.empty:
-                df_history = df_history.iloc[:-1] # 刪除最後一行
-                df_history.to_csv('history.csv', index=False)
-                st.success("已成功刪除最後一筆輸入錯誤的資料！")
-                st.rerun()
+
+    # 刪除最後一筆的按鈕放在展開區內，但表單外
+    if st.button("🗑️ 刪除最後一筆歷史資料"):
+        if not df_history.empty:
+            df_history = df_history.iloc[:-1]
+            df_history.to_csv('history.csv', index=False)
+            st.success("已成功刪除最後一筆資料！")
+            st.rerun()
 
 # 2. 新增 MAE 戰績
 with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
@@ -139,7 +139,8 @@ with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
             df_tracking.to_csv('tracking.csv', index=False)
             st.success("✅ 戰績已同步更新！")
             st.rerun()
-            # ==========================================
+
+# ==========================================
 # 📂 老闆專用後台：資料庫查看與備份
 # ==========================================
 st.divider()
