@@ -56,7 +56,7 @@ for target in targets:
 # 🎨 網頁 UI 設計 (主畫面)
 # ==========================================
 st.title("🏪 全家智能配銷中樞 (AI POS)")
-st.markdown("**逢甲大學 運物系 - 第八組期末**")
+st.markdown("**運物二乙 生產與配銷 第八組期末**")
 st.divider()
 
 col1, col2 = st.columns([1, 1])
