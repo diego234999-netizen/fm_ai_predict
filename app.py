@@ -28,9 +28,37 @@ if 'first_open' not in st.session_state:
             
     # 2.5 秒後，把這個開場畫面清空，顯示真正的主畫面
     splash.empty()
-    
-    # 噴灑慶祝氣球 (非常有遊戲過關的感覺)
-    st.balloons()
+    food_emojis = ["🍞", "🍎", "🍱", "🍙", "🧁", "🍉", "🍰", "🍌", "🥤", "🥪", "🥗", "🍨"]
+    emoji_style = ""
+    for idx, emoji in enumerate(food_emojis * 3): # 重複3次，總共讓36個美食飛上天
+        left = (idx * 2.7) % 95 # 讓食物均勻分佈在螢幕寬度 0%~95%
+        delay = (idx * 0.12) # 讓它們有先後順序，錯落有致
+        duration = 3 + (idx % 3) # 隨機 3 ~ 5 秒的飛行速度
+        size = 24 + (idx % 4) * 8 # 隨機 24px ~ 48px 大小，增加立體感
+        
+        emoji_style += f"""
+        @keyframes fly_{idx} {{
+            0% {{ transform: translateY(100vh) rotate(0deg); opacity: 0; }}
+            10% {{ opacity: 0.85; }}
+            90% {{ opacity: 0.85; }}
+            100% {{ transform: translateY(-120vh) rotate(360deg); opacity: 0; }}
+        }}
+        .food_{idx} {{
+            position: fixed;
+            bottom: -50px;
+            left: {left}vw;
+            font-size: {size}px;
+            animation: fly_{idx} {duration}s linear {delay}s forwards;
+            pointer-events: none;
+            z-index: 99999;
+        }}
+        """
+        html_content = f"<style>{emoji_style}</style>"
+    for idx, emoji in enumerate(food_emojis * 3):
+        html_content += f"<div class='food_{idx}'>{emoji}</div>"
+        
+    st.markdown(html_content, unsafe_allow_html=True)
+
     
     # 紀錄已經開過場了，這一次使用都不會再跳出來
     st.session_state['first_open'] = True
