@@ -30,25 +30,25 @@ if 'first_open' not in st.session_state:
     splash.empty()
     food_emojis = ["🍞", "🍎", "🍱", "🍙", "🧁", "🍉", "🍰", "🍌", "🥤", "🥪", "🥗", "🍨"]
     emoji_style = ""
-    for idx, emoji in enumerate(food_emojis * 3): # 重複3次，總共讓36個美食飛上天
-        left = (idx * 2.7) % 95 # 讓食物均勻分佈在螢幕寬度 0%~95%
-        delay = (idx * 0.12) # 讓它們有先後順序，錯落有致
-        duration = 3 + (idx % 3) # 隨機 3 ~ 5 秒的飛行速度
-        size = 24 + (idx % 4) * 8 # 隨機 24px ~ 48px 大小，增加立體感
+    for idx, emoji in enumerate(food_emojis * 2): # 重複3次，總共讓36個美食飛上天
+        left = (idx * 4) % 95 # 讓食物均勻分佈在螢幕寬度 0%~95%
+        delay = (idx * 0.03) # 讓它們有先後順序，錯落有致
+        duration = 1.5 + (idx % 2) # 隨機 3 ~ 5 秒的飛行速度
+        size = 28 + (idx % 3) * 10 # 隨機 24px ~ 48px 大小，增加立體感
         
         emoji_style += f"""
         @keyframes fly_{idx} {{
             0% {{ transform: translateY(100vh) rotate(0deg); opacity: 0; }}
-            10% {{ opacity: 0.85; }}
-            90% {{ opacity: 0.85; }}
-            100% {{ transform: translateY(-120vh) rotate(360deg); opacity: 0; }}
+            10% {{ opacity: 0.9; }}
+            90% {{ opacity: 0.9; }}
+            100% {{ transform: translateY(-110vh) rotate({180+idx*30}deg); opacity: 0; }}
         }}
         .food_{idx} {{
             position: fixed;
             bottom: -50px;
             left: {left}vw;
             font-size: {size}px;
-            animation: fly_{idx} {duration}s linear {delay}s forwards;
+            animation: fly_{idx} {duration}s ease_in {delay}s forwards;
             pointer-events: none;
             z-index: 99999;
         }}
