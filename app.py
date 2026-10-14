@@ -103,9 +103,9 @@ st.sidebar.markdown("各店長請於打烊後，在此同步最新數據。")
 with st.sidebar.expander("新增今日分類報廢"):
     with st.form("history_form"):
         h_date = st.date_input("日期")
-        h_wk = st.selectbox("週末", [0,1], key='h1')
-        h_hol = st.selectbox("連假", [0,1], key='h2')
-        h_pre = st.selectbox("連假前夕", [0,1], key='h3')
+        h_wk = st.selectbox("週末", [0,1], key='h1', format_func=lambda x: "是" if x == 1 else "否")
+        h_hol = st.selectbox("連假", [0,1], key='h2', format_func=lambda x: "是" if x == 1 else "否")
+        h_pre = st.selectbox("連假前夕", [0,1], key='h3', format_func=lambda x: "是" if x == 1 else "否")
         h_main = st.number_input("主食", min_value=0, value=0)
         h_light = st.number_input("輕食", min_value=0, value=0)
         h_hot = st.number_input("小吃", min_value=0, value=0)
