@@ -8,6 +8,32 @@ import os
 # ⚙️ 系統與資料庫設定
 # ==========================================
 st.set_page_config(page_title="全家 AI 預測系統", page_icon="🏪", layout="wide")
+import time # 最上面記得確認有沒有 import time，沒有的話順便補上
+
+# ==========================================
+# 🎮 遊戲化開場動畫 (只在剛打開時執行一次)
+# ==========================================
+if 'first_open' not in st.session_state:
+    # 建立一個暫存的滿版區塊
+    splash = st.empty()
+    
+    with splash.container():
+        st.markdown("<h1 style='text-align: center; margin-top: 15vh; font-size: 50px;'>Ai報廢剩食預測</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: gray;'>逢甲運物二乙第八組期末展示</h3>", unsafe_allow_html=True)
+        st.divider()
+        
+        # 加上一個載入中的動畫圈圈
+        with st.spinner("啟動 AI 預測與雲端資料庫..."):
+            time.sleep(2.5) # 讓這個開場畫面停留 2.5 秒
+            
+    # 2.5 秒後，把這個開場畫面清空，顯示真正的主畫面
+    splash.empty()
+    
+    # 噴灑慶祝氣球 (非常有遊戲過關的感覺)
+    st.balloons()
+    
+    # 紀錄已經開過場了，這一次使用都不會再跳出來
+    st.session_state['first_open'] = True
 
 # 預設歷史資料 (如果雲端沒有 CSV 檔案，就自動建立)
 default_history = [
