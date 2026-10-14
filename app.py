@@ -67,9 +67,9 @@ with col1:
     st.info("請輸入明日特徵進行預測")
     
     with st.form("predict_form"):
-        p_wk = st.selectbox("是否為週末?", [0, 1])
-        p_hol = st.selectbox("是否為連假?", [0, 1])
-        p_pre = st.selectbox("是否為連假前夕?", [0, 1])
+        p_wk = st.selectbox("是否為週末?", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
+        p_hol = st.selectbox("是否為連假?", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
+        p_pre = st.selectbox("是否為連假前夕?", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
         submit_predict = st.form_submit_button("執行預測")
         
     if submit_predict:
