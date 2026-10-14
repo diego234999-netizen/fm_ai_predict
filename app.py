@@ -10,59 +10,63 @@ import os
 st.set_page_config(page_title="全家 AI 預測系統", page_icon="🏪", layout="wide")
 import time # 最上面記得確認有沒有 import time，沒有的話順便補上
 
+import time 
+
 # ==========================================
-# 🎮 遊戲化開場動畫 (只在剛打開時執行一次)
+# 🎮 全家美食開場動畫 (快速俐落版)
 # ==========================================
 if 'first_open' not in st.session_state:
-    # 建立一個暫存的滿版區塊
     splash = st.empty()
     
     with splash.container():
-        st.markdown("<h1 style='text-align: center; margin-top: 15vh; font-size: 50px;'>Ai報廢剩食預測</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center; color: gray;'>逢甲運物二乙第八組期末展示</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; margin-top: 15vh; font-size: 50px;'>報廢剩食Ai預測</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: gray;'>逢甲運物二乙期末展示</h3>", unsafe_allow_html=True)
         st.divider()
         
-        # 加上一個載入中的動畫圈圈
-        with st.spinner("啟動 AI 預測與雲端資料庫..."):
-            time.sleep(2.5) # 讓這個開場畫面停留 2.5 秒
+        with st.spinner("啟動 AI 預測"):
+            # 縮短等待時間，讓節奏更明快
+            time.sleep(1.2) 
             
-    # 2.5 秒後，把這個開場畫面清空，顯示真正的主畫面
     splash.empty()
+    
+    # 🌟 快速俐落版：全家美食噴發特效
     food_emojis = ["🍞", "🍎", "🍱", "🍙", "🧁", "🍉", "🍰", "🍌", "🥤", "🥪", "🥗", "🍨"]
     emoji_style = ""
-    for idx, emoji in enumerate(food_emojis * 2): # 重複3次，總共讓36個美食飛上天
-        left = (idx * 4) % 95 # 讓食物均勻分佈在螢幕寬度 0%~95%
-        delay = (idx * 0.03) # 讓它們有先後順序，錯落有致
-        duration = 1.5 + (idx % 2) # 隨機 3 ~ 5 秒的飛行速度
-        size = 28 + (idx % 3) * 10 # 隨機 24px ~ 48px 大小，增加立體感
+    # 將數量減少一點，避免畫面太雜亂，並讓它們幾乎同時噴發
+    for idx, emoji in enumerate(food_emojis * 2): 
+        left = (idx * 4) % 95 
+        # 大幅縮短延遲時間，讓食物幾乎是瞬間一起衝出來
+        delay = (idx * 0.03) 
+        # 大幅加快飛行速度，只需 1.5 到 2.5 秒就會飛出畫面
+        duration = 1.5 + (idx % 2) 
+        size = 28 + (idx % 3) * 10 
         
         emoji_style += f"""
         @keyframes fly_{idx} {{
             0% {{ transform: translateY(100vh) rotate(0deg); opacity: 0; }}
             10% {{ opacity: 0.9; }}
             90% {{ opacity: 0.9; }}
-            100% {{ transform: translateY(-110vh) rotate({180+idx*30}deg); opacity: 0; }}
+            100% {{ transform: translateY(-110vh) rotate({180 + idx * 30}deg); opacity: 0; }}
         }}
         .food_{idx} {{
             position: fixed;
             bottom: -50px;
             left: {left}vw;
             font-size: {size}px;
-            animation: fly_{idx} {duration}s ease_in {delay}s forwards;
+            /* 將動畫延遲跟持續時間調短 */
+            animation: fly_{idx} {duration}s ease-in {delay}s forwards; 
             pointer-events: none;
             z-index: 99999;
         }}
         """
-        html_content = f"<style>{emoji_style}</style>"
-    for idx, emoji in enumerate(food_emojis * 3):
+        
+    html_content = f"<style>{emoji_style}</style>"
+    for idx, emoji in enumerate(food_emojis * 2):
         html_content += f"<div class='food_{idx}'>{emoji}</div>"
         
     st.markdown(html_content, unsafe_allow_html=True)
-
     
-    # 紀錄已經開過場了，這一次使用都不會再跳出來
     st.session_state['first_open'] = True
-
 # 預設歷史資料 (如果雲端沒有 CSV 檔案，就自動建立)
 default_history = [
     ['2026-09-02',0,0,0,5,3,0,2,4], ['2026-09-03',0,0,0,8,4,0,1,7], ['2026-09-04',0,0,0,2,10,1,1,7],
