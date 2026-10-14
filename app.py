@@ -56,35 +56,35 @@ for target in targets:
 # 🎨 網頁 UI 設計 (主畫面)
 # ==========================================
 st.title("🏪 全家智能配銷中樞 (AI POS)")
-st.markdown("**逢甲大學 運物系 - 第八組期末專題 (響應 SDGs 12)**")
+st.markdown("**逢甲大學 運物系 - 第八組期末**")
 st.divider()
 
 col1, col2 = st.columns([1, 1])
 
 # --- 左半邊：AI 預測引擎 ---
 with col1:
-    st.header("🔮 明日報廢量預測引擎")
-    st.info("請輸入明日的日曆特徵，系統將動態呼叫 Random Forest 模型進行預測。")
+    st.header("明日報廢量預測")
+    st.info("請輸入明日特徵進行預測")
     
     with st.form("predict_form"):
         p_wk = st.selectbox("是否為週末?", [0, 1])
         p_hol = st.selectbox("是否為連假?", [0, 1])
         p_pre = st.selectbox("是否為連假前夕?", [0, 1])
-        submit_predict = st.form_submit_button("⚡ 執行 AI 預測")
+        submit_predict = st.form_submit_button("執行預測")
         
     if submit_predict:
         future_X = pd.DataFrame([[p_wk, p_hol, p_pre]], columns=['Is_Weekend', 'Is_Holiday', 'Is_PreHoliday'])
         pred_results = {t: int(models[t].predict(future_X)[0]) for t in targets}
         total_pred = sum(pred_results.values())
         
-        st.success(f"🚨 系統預估明日總報廢量： **{total_pred} 件**")
+        st.success(f"系統預估明日總報廢量： **{total_pred} 件**")
         cols = st.columns(5)
         for idx, t in enumerate(targets):
             cols[idx].metric(label=target_names_zh[t], value=pred_results[t])
 
 # --- 右半邊：真實 MAE 戰績 ---
 with col2:
-    st.header("🏆 實戰預測追蹤 (True MAE)")
+    st.header("預測誤差MAE")
     if not df_tracking.empty:
         true_mae = mean_absolute_error(df_tracking['Actual_Waste'], df_tracking['Recorded_AI_Prediction'])
         st.metric(label="目前系統實戰平均誤差 (MAE)", value=f"{true_mae:.2f} 件")
@@ -96,11 +96,11 @@ st.divider()
 # ==========================================
 # 📥 資料寫入區 (側邊欄)
 # ==========================================
-st.sidebar.header("📥 資料更新中心")
+st.sidebar.header("資料更新中心")
 st.sidebar.markdown("各店長請於打烊後，在此同步最新數據。")
 
 # 1. 新增歷史資料
-with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
+with st.sidebar.expander("新增今日分類報廢"):
     with st.form("history_form"):
         h_date = st.date_input("日期")
         h_wk = st.selectbox("週末", [0,1], key='h1')
@@ -109,8 +109,8 @@ with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
         h_main = st.number_input("主食", min_value=0, value=0)
         h_light = st.number_input("輕食", min_value=0, value=0)
         h_hot = st.number_input("小吃", min_value=0, value=0)
-        h_soup = st.number_input("湯品", min_value=0, value=0)
-        h_dessert = st.number_input("甜點", min_value=0, value=0)
+        h_soup = st.number_input("湯品水果", min_value=0, value=0)
+        h_dessert = st.number_input("甜點麵包", min_value=0, value=0)
         
         if st.form_submit_button("寫入雲端資料庫"):
             new_row = [str(h_date), h_wk, h_hol, h_pre, h_main, h_light, h_hot, h_soup, h_dessert]
@@ -119,7 +119,7 @@ with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
             st.success("✅ 歷史資料已同步！模型已自動重新訓練。")
             st.rerun()
             
-    if st.button("🗑️ 刪除最後一筆歷史資料"):
+    if st.button("刪除最後一筆歷史資料"):
         if not df_history.empty:
             df_history = df_history.iloc[:-1]
             df_history.to_csv('history.csv', index=False)
@@ -127,7 +127,7 @@ with st.sidebar.expander("➕ 新增今日分類報廢 (擴充訓練庫)"):
             st.rerun()
 
 # 2. 新增 MAE 戰績
-with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
+with st.sidebar.expander("新增 MAE "):
     with st.form("tracking_form"):
         t_date = st.date_input("戰績日期")
         t_actual = st.number_input("實際報廢總數", min_value=0, value=0)
@@ -139,7 +139,7 @@ with st.sidebar.expander("➕ 新增 MAE 對決戰績"):
             st.success("✅ 戰績已同步更新！")
             st.rerun()
             
-    if st.button("🗑️ 刪除最後一筆戰績資料"):
+    if st.button("刪除最後一筆戰績資料"):
         if not df_tracking.empty:
             df_tracking = df_tracking.iloc[:-1]
             df_tracking.to_csv('tracking.csv', index=False)
@@ -159,7 +159,7 @@ with st.expander("點我展開：查看並下載完整的雲端歷史資料庫")
         st.subheader("歷史訓練庫 (history.csv)")
         st.dataframe(df_history, use_container_width=True)
         st.download_button(
-            label="📥 下載歷史資料",
+            label="下載歷史資料",
             data=df_history.to_csv(index=False).encode('utf-8-sig'),
             file_name='FamilyMart_History.csv',
             mime='text/csv'
@@ -169,7 +169,7 @@ with st.expander("點我展開：查看並下載完整的雲端歷史資料庫")
         st.subheader("MAE 戰績庫 (tracking.csv)")
         st.dataframe(df_tracking, use_container_width=True)
         st.download_button(
-            label="📥 下載戰績資料",
+            label="下載戰績資料",
             data=df_tracking.to_csv(index=False).encode('utf-8-sig'),
             file_name='FamilyMart_Tracking.csv',
             mime='text/csv'
