@@ -212,7 +212,7 @@ with col1:
     with st.form("predict_form"):
         p_wk = st.selectbox("是否為週末 (週六、週日)", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
         p_hol = st.selectbox("是否為國定連假期間", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
-        p_pre = st.selectbox("是否為連假前夕", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
+        p_pre = st.selectbox("是否為連假前夕(含星期五)", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
         submit_predict = st.form_submit_button("執行智能預測運算", use_container_width=True)
         
     if submit_predict:
@@ -259,7 +259,7 @@ with st.sidebar.expander("新增當日分類報廢紀錄"):
         h_date = st.date_input("結算日期")
         h_wk = st.selectbox("是否為週末", [0, 1], key='h1', format_func=lambda x: "是" if x == 1 else "否")
         h_hol = st.selectbox("是否為連假", [0, 1], key='h2', format_func=lambda x: "是" if x == 1 else "否")
-        h_pre = st.selectbox("是否為連假前夕", [0, 1], key='h3', format_func=lambda x: "是" if x == 1 else "否")
+        h_pre = st.selectbox("是否為連假前夕(含星期五)", [0, 1], key='h3', format_func=lambda x: "是" if x == 1 else "否")
         h_main = st.number_input("主食便當類 (件)", min_value=0, value=0)
         h_light = st.number_input("輕食飯糰三明治 (件)", min_value=0, value=0)
         h_hot = st.number_input("小吃熟食類 (件)", min_value=0, value=0)
