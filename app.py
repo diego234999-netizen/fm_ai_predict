@@ -9,7 +9,7 @@ import time
 # 系統頁面設定 (企業專業風格)
 # ==========================================
 st.set_page_config(
-    page_title="全家便利商店 | 智能配銷與報廢預測系統",
+    page_title="全家便利商店報廢預測系統",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -64,8 +64,8 @@ if 'first_open' not in st.session_state:
         st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
         st.markdown(
             "<div style='text-align: center; margin-top: 18vh;'>"
-            "<h1 style='color: #0080C6; font-size: 42px; font-weight: 700; letter-spacing: 2px;'>全家便利商店 智能配銷中樞</h1>"
-            "<p style='color: #009B4C; font-size: 18px; font-weight: 600;'>逢甲大學運輸與物流學系 | 生產與配銷期末專題 (SDGs 12)</p>"
+            "<h1 style='color: #0080C6; font-size: 42px; font-weight: 700; letter-spacing: 2px;'>全家便利商店 報廢預測系統</h1>"
+            "<p style='color: #009B4C; font-size: 18px; font-weight: 600;'>逢甲大學運物二乙第八組 生產與配銷期末</p>"
             "</div>",
             unsafe_allow_html=True
         )
@@ -198,7 +198,7 @@ st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
 st.markdown("""
 <div class='fm-header-box'>
     <div class='fm-title'>全家便利商店 | 智能配銷與報廢預測系統</div>
-    <div class='fm-subtitle'>逢甲大學運輸與物流學系 二乙 | 生產與配銷 第八組期末專案 (SDGs 12 負責任的消費與生產)</div>
+    <div class='fm-subtitle'>逢甲大學運物二乙 | 生產與配銷 第八組期末</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -206,8 +206,8 @@ col1, col2 = st.columns([1, 1], gap="large")
 
 # --- 左半邊：AI 預測引擎 ---
 with col1:
-    st.markdown("<div class='section-title'>明日門市報廢量預測模組</div>", unsafe_allow_html=True)
-    st.caption("請設定明日之日曆與營運特徵，系統將透過隨機森林模型估算各品項預期報廢量，作為訂貨減量之決策依據。")
+    st.markdown("<div class='section-title'>明日門市報廢量預測</div>", unsafe_allow_html=True)
+    st.caption("請設定明日之日曆與營運特徵，系統將透過模型估算各品項預期報廢量。")
     
     with st.form("predict_form"):
         p_wk = st.selectbox("是否為週末 (週六、週日)", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
