@@ -197,7 +197,7 @@ for target in targets:
 st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
 st.markdown("""
 <div class='fm-header-box'>
-    <div class='fm-title'>全家便利商店 | 智能配銷與報廢預測系統</div>
+    <div class='fm-title'>生產與配銷期末 運物二乙第八組 報廢預測系統</div>
     <div class='fm-subtitle'>逢甲大學運物二乙 | 生產與配銷 第八組期末</div>
 </div>
 """, unsafe_allow_html=True)
