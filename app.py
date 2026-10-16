@@ -63,9 +63,9 @@ if 'first_open' not in st.session_state:
     with splash.container():
         st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
         st.markdown(
-            "<div style='text-align: center; margin-top: 18vh;'>"
-            "<h1 style='color: #0080C6; font-size: 42px; font-weight: 700; letter-spacing: 2px;'>全家便利商店 報廢預測系統</h1>"
-            "<p style='color: #009B4C; font-size: 18px; font-weight: 600;'>逢甲大學運物二乙第八組 生產與配銷期末</p>"
+            "<div style='text-align: center; margin-top: 22vh;'>"
+            "<h1 style='color: #0080C6; font-size: 32px; font-weight: 700;'>Ai報廢預測系統</h1>"
+            "<p style='color: #009B4C; font-size: 16px; font-weight: 600;'>逢甲大學運物二乙第八組 生產與配銷期末</p>"
             "</div>",
             unsafe_allow_html=True
         )
@@ -197,8 +197,11 @@ for target in targets:
 st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
 st.markdown("""
 <div class='fm-header-box'>
-    <div class='fm-title'>生產與配銷期末    運物二乙第八組       報廢預測系統</div>
-    
+    <div class='fm-title'>
+        生產與配銷期末<br>
+        運物二乙第八組<br>
+        Ai報廢預測系統
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
