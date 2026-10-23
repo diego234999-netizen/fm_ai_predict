@@ -76,7 +76,7 @@ if 'first_open' not in st.session_state:
     st.session_state['first_open'] = True
 
 # ==========================================
-# 資料庫初始化與自我修復機制 (更新至 10/22 完整資料)
+# 資料庫初始化與自我修復機制 (更新至 10/15 完整資料)
 # ==========================================
 HISTORY_FILE = 'history.csv'
 TRACKING_FILE = 'tracking.csv'
@@ -84,7 +84,7 @@ TRACKING_FILE = 'tracking.csv'
 expected_history_cols = ['Date', 'Is_Weekend', 'Is_Holiday', 'Is_PreHoliday', 'MainMeal', 'LightMeal', 'HotDeli', 'SoupFruit', 'Dessert']
 expected_tracking_cols = ['Date', 'Actual_Waste', 'Recorded_AI_Prediction']
 
-# 完整 33 筆歷史分類報廢資料 (更新至 10/22)
+# 完整 27 筆歷史分類報廢資料 (已按日期排序整理)
 default_history_data = [
     ['2026-09-02', 0, 0, 0, 5, 3, 0, 2, 4],
     ['2026-09-03', 0, 0, 0, 8, 4, 0, 1, 7],
@@ -112,16 +112,10 @@ default_history_data = [
     ['2026-10-11', 1, 1, 0, 5, 5, 1, 3, 4],
     ['2026-10-12', 0, 0, 0, 1, 1, 0, 0, 4],
     ['2026-10-14', 0, 0, 0, 3, 0, 1, 0, 6],
-    ['2026-10-15', 0, 0, 0, 1, 6, 1, 1, 8],
-    ['2026-10-16', 0, 0, 1, 2, 17, 0, 3, 5], # 新增資料
-    ['2026-10-17', 1, 0, 0, 4, 6, 0, 2, 7],  # 新增資料
-    ['2026-10-18', 1, 0, 0, 3, 1, 0, 0, 6],  # 新增資料
-    ['2026-10-19', 0, 0, 0, 1, 3, 0, 1, 3],  # 新增資料
-    ['2026-10-20', 0, 0, 0, 2, 7, 0, 1, 4],  # 新增資料
-    ['2026-10-22', 0, 0, 0, 2, 7, 0, 2, 2]   # 新增資料
+    ['2026-10-15', 0, 0, 0, 1, 6, 1, 1, 8]
 ]
 
-# 完整 17 筆 MAE 追蹤資料 (更新至 10/22)
+# 完整 11 筆 MAE 追蹤資料 (已按日期排序整理)
 default_tracking_data = [
     ['2026-10-02', 18, 18],
     ['2026-10-04', 26, 24],
@@ -133,13 +127,7 @@ default_tracking_data = [
     ['2026-10-11', 18, 24],
     ['2026-10-12', 6, 12],
     ['2026-10-14', 10, 12],
-    ['2026-10-15', 17, 12],
-    ['2026-10-16', 27, 17], # 新增資料
-    ['2026-10-17', 28, 19], # 新增資料
-    ['2026-10-18', 10, 24], # 新增資料
-    ['2026-10-19', 8, 13],  # 新增資料
-    ['2026-10-20', 14, 13], # 新增資料
-    ['2026-10-22', 13, 14]  # 新增資料
+    ['2026-10-15', 17, 12]
 ]
 
 def load_data():
@@ -150,6 +138,7 @@ def load_data():
             temp_df = pd.read_csv(HISTORY_FILE)
             if 'Unnamed: 0' in temp_df.columns:
                 temp_df = temp_df.drop(columns=['Unnamed: 0'])
+            # 確保所有必要欄位都存在，且資料筆數不小於預設的 27 筆
             if all(col in temp_df.columns for col in expected_history_cols) and len(temp_df) >= len(default_history_data):
                 df_hist = temp_df[expected_history_cols]
                 need_reset_hist = False
@@ -216,7 +205,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns(2, gap="large")
+col1, col2 = st.columns([1, 1], gap="large")
 
 # --- 左半邊：AI 預測引擎 ---
 with col1:
@@ -244,34 +233,114 @@ with col2:
     st.markdown("<div class='section-title'>模型預測準確度驗證 (MAE 追蹤)</div>", unsafe_allow_html=True)
     
     if not df_tracking.empty:
-        # 計算絕對誤差與當前平均絕對誤差 (MAE)
         df_tracking['Abs_Error'] = (df_tracking['Actual_Waste'] - df_tracking['Recorded_AI_Prediction']).abs()
         current_mae = df_tracking['Abs_Error'].mean()
         
-        # 建立大型指標展示區
         m_col1, m_col2 = st.columns(2)
-        m_col1.metric(label="目前平均絕對誤差 (MAE)", value=f"{current_mae:.2f} 件")
-        m_col2.metric(label="已追蹤驗證天數", value=f"{len(df_tracking)} 天")
+        m_col1.metric(label="目前累積平均絕對誤差 (MAE)", value=f"{current_mae:.2f} 件")
+        m_col2.metric(label="累計實測驗證天數", value=f"{len(df_tracking)} 天")
         
-        # 繪製趨勢對比圖
-        st.markdown("<div style='margin-top: 10px; font-weight: 500; font-size: 14px; color: #555;'>真實總報廢量 vs AI 模型預測值 趨勢對比</div>", unsafe_allow_html=True)
-        chart_data = df_tracking.set_index('Date')[['Actual_Waste', 'Recorded_AI_Prediction']]
-        chart_data.columns = ['真實總報廢量', 'AI 預測總量']
-        st.line_chart(chart_data, height=220)
-        
-        # 呈現追蹤歷史數據表
-        st.markdown("<div style='margin-top: 15px; font-weight: 500; font-size: 14px; color: #555;'>歷史驗證數據明細</div>", unsafe_allow_html=True)
-        st.dataframe(
-            df_tracking[['Date', 'Actual_Waste', 'Recorded_AI_Prediction', 'Abs_Error']].rename(
-                columns={
-                    'Date': '日期',
-                    'Actual_Waste': '實際總報廢量 (件)',
-                    'Recorded_AI_Prediction': 'AI 預測總量 (件)',
-                    'Abs_Error': '絕對誤差 (件)'
-                }
-            ),
-            use_container_width=True,
-            hide_index=True
+        chart_data = df_tracking.set_index('Date')[['Actual_Waste', 'Recorded_AI_Prediction']].rename(
+            columns={'Actual_Waste': '門市實際報廢量', 'Recorded_AI_Prediction': 'AI 系統預測量'}
         )
+        # 採用全家企業藍與永續綠繪製折線圖
+        st.line_chart(chart_data, color=["#0080C6", "#009B4C"])
     else:
-        st.warning("目前暫無追蹤驗證數據。")
+        st.warning("目前尚無驗證資料。")
+
+st.divider()
+
+# ==========================================
+# 側邊欄：門市數據登錄中心
+# ==========================================
+st.sidebar.markdown("### 門市數據登錄中心")
+st.sidebar.caption("請於每日晚班打烊結算後，於此處登錄當日實際報廢數據以利模型持續重新訓練。")
+
+# 1. 新增歷史分類報廢
+with st.sidebar.expander("新增當日分類報廢紀錄"):
+    with st.form("history_form"):
+        h_date = st.date_input("結算日期")
+        h_wk = st.selectbox("是否為週末", [0, 1], key='h1', format_func=lambda x: "是" if x == 1 else "否")
+        h_hol = st.selectbox("是否為連假", [0, 1], key='h2', format_func=lambda x: "是" if x == 1 else "否")
+        h_pre = st.selectbox("是否為連假前夕(含星期五)", [0, 1], key='h3', format_func=lambda x: "是" if x == 1 else "否")
+        h_main = st.number_input("主食便當類 (件)", min_value=0, value=0)
+        h_light = st.number_input("輕食飯糰三明治 (件)", min_value=0, value=0)
+        h_hot = st.number_input("小吃熟食類 (件)", min_value=0, value=0)
+        h_soup = st.number_input("湯品與截切水果 (件)", min_value=0, value=0)
+        h_dessert = st.number_input("甜點與烘焙麵包 (件)", min_value=0, value=0)
+        
+        if st.form_submit_button("寫入資料庫並重新訓練模型", use_container_width=True):
+            new_row = [str(h_date), h_wk, h_hol, h_pre, h_main, h_light, h_hot, h_soup, h_dessert]
+            df_history.loc[len(df_history)] = new_row
+            df_history.to_csv(HISTORY_FILE, index=False)
+            st.success("歷史分類資料已同步更新。")
+            time.sleep(0.5)
+            st.rerun()
+            
+    if st.button("刪除最後一筆歷史紀錄", use_container_width=True):
+        if len(df_history) > 1:
+            df_history = df_history.iloc[:-1]
+            df_history.to_csv(HISTORY_FILE, index=False)
+            st.success("已刪除最後一筆歷史紀錄。")
+            time.sleep(0.5)
+            st.rerun()
+
+# 2. 新增 MAE 對決戰績
+with st.sidebar.expander("新增每日預測誤差驗證紀錄"):
+    with st.form("tracking_form"):
+        t_date = st.date_input("驗證日期")
+        t_actual = st.number_input("當日實際總報廢量 (件)", min_value=0, value=0)
+        t_pred = st.number_input("系統預估總報廢量 (件)", min_value=0, value=0)
+        
+        if st.form_submit_button("寫入驗證紀錄", use_container_width=True):
+            new_track = [str(t_date), t_actual, t_pred]
+            df_tracking = df_tracking[expected_tracking_cols]
+            df_tracking.loc[len(df_tracking)] = new_track
+            df_tracking.to_csv(TRACKING_FILE, index=False)
+            st.success("驗證紀錄已同步更新。")
+            time.sleep(0.5)
+            st.rerun()
+
+    if st.button("刪除最後一筆驗證紀錄", use_container_width=True):
+        if len(df_tracking) > 1:
+            df_tracking = df_tracking[expected_tracking_cols].iloc[:-1]
+            df_tracking.to_csv(TRACKING_FILE, index=False)
+            st.success("已刪除最後一筆驗證紀錄。")
+            time.sleep(0.5)
+            st.rerun()
+
+# ==========================================
+# 底部區塊：資料庫檢視與備份匯出
+# ==========================================
+st.markdown("<div class='section-title'>雲端資料庫明細與備份管理</div>", unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["歷史分類報廢資料庫 (模型訓練集)", "預測誤差驗證資料庫 (MAE 追蹤集)"])
+
+with tab1:
+    display_hist = df_history.rename(columns={
+        'Date': '日期', 'Is_Weekend': '週末', 'Is_Holiday': '連假', 'Is_PreHoliday': '連假前夕',
+        'MainMeal': '主食便當類', 'LightMeal': '輕食飯糰三明治', 'HotDeli': '小吃熟食類',
+        'SoupFruit': '湯品與截切水果', 'Dessert': '甜點與烘焙麵包'
+    })
+    st.dataframe(display_hist, use_container_width=True)
+    csv_hist = df_history.to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="下載歷史分類報廢資料 (CSV)",
+        data=csv_hist,
+        file_name="familymart_history_export.csv",
+        mime="text/csv"
+    )
+
+with tab2:
+    display_track = df_tracking[expected_tracking_cols].copy()
+    display_track['絕對誤差 (件)'] = (display_track['Actual_Waste'] - display_track['Recorded_AI_Prediction']).abs()
+    display_track = display_track.rename(columns={
+        'Date': '日期', 'Actual_Waste': '實際總報廢量', 'Recorded_AI_Prediction': 'AI 預估總報廢量'
+    })
+    st.dataframe(display_track, use_container_width=True)
+    csv_track = df_tracking[expected_tracking_cols].to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="下載預測誤差驗證資料 (CSV)",
+        data=csv_track,
+        file_name="familymart_mae_export.csv",
+        mime="text/csv"
+    )
