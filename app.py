@@ -76,7 +76,7 @@ if 'first_open' not in st.session_state:
     st.session_state['first_open'] = True
 
 # ==========================================
-# 資料庫初始化與自我修復機制 (更新至 10/15 完整資料)
+# 資料庫初始化與自我修復機制 (更新至 10/22 完整資料)
 # ==========================================
 HISTORY_FILE = 'history.csv'
 TRACKING_FILE = 'tracking.csv'
@@ -84,7 +84,7 @@ TRACKING_FILE = 'tracking.csv'
 expected_history_cols = ['Date', 'Is_Weekend', 'Is_Holiday', 'Is_PreHoliday', 'MainMeal', 'LightMeal', 'HotDeli', 'SoupFruit', 'Dessert']
 expected_tracking_cols = ['Date', 'Actual_Waste', 'Recorded_AI_Prediction']
 
-# 完整 27 筆歷史分類報廢資料 (已按日期排序整理)
+# 完整 33 筆歷史分類報廢資料 (已更新至 10/22 並按日期排序整理)
 default_history_data = [
     ['2026-09-02', 0, 0, 0, 5, 3, 0, 2, 4],
     ['2026-09-03', 0, 0, 0, 8, 4, 0, 1, 7],
@@ -112,10 +112,16 @@ default_history_data = [
     ['2026-10-11', 1, 1, 0, 5, 5, 1, 3, 4],
     ['2026-10-12', 0, 0, 0, 1, 1, 0, 0, 4],
     ['2026-10-14', 0, 0, 0, 3, 0, 1, 0, 6],
-    ['2026-10-15', 0, 0, 0, 1, 6, 1, 1, 8]
+    ['2026-10-15', 0, 0, 0, 1, 6, 1, 1, 8],
+    ['2026-10-16', 0, 0, 1, 2, 17, 0, 3, 5],
+    ['2026-10-17', 1, 0, 0, 4, 6, 0, 2, 7],
+    ['2026-10-18', 1, 0, 0, 3, 1, 0, 0, 6],
+    ['2026-10-19', 0, 0, 0, 1, 3, 0, 1, 3],
+    ['2026-10-20', 0, 0, 0, 2, 7, 0, 1, 4],
+    ['2026-10-22', 0, 0, 0, 2, 7, 0, 2, 2]
 ]
 
-# 完整 11 筆 MAE 追蹤資料 (已按日期排序整理)
+# 完整 17 筆 MAE 追蹤資料 (已更新至 10/22 並按日期排序整理)
 default_tracking_data = [
     ['2026-10-02', 18, 18],
     ['2026-10-04', 26, 24],
@@ -127,7 +133,13 @@ default_tracking_data = [
     ['2026-10-11', 18, 24],
     ['2026-10-12', 6, 12],
     ['2026-10-14', 10, 12],
-    ['2026-10-15', 17, 12]
+    ['2026-10-15', 17, 12],
+    ['2026-10-16', 27, 17],
+    ['2026-10-17', 28, 19],
+    ['2026-10-18', 10, 24],
+    ['2026-10-19', 8, 13],
+    ['2026-10-20', 14, 13],
+    ['2026-10-22', 13, 14]
 ]
 
 def load_data():
@@ -138,7 +150,7 @@ def load_data():
             temp_df = pd.read_csv(HISTORY_FILE)
             if 'Unnamed: 0' in temp_df.columns:
                 temp_df = temp_df.drop(columns=['Unnamed: 0'])
-            # 確保所有必要欄位都存在，且資料筆數不小於預設的 27 筆
+            # 確保所有必要欄位都存在，且資料筆數不小於預設的 33 筆
             if all(col in temp_df.columns for col in expected_history_cols) and len(temp_df) >= len(default_history_data):
                 df_hist = temp_df[expected_history_cols]
                 need_reset_hist = False
@@ -156,6 +168,7 @@ def load_data():
             temp_track = pd.read_csv(TRACKING_FILE)
             if 'Unnamed: 0' in temp_track.columns:
                 temp_track = temp_track.drop(columns=['Unnamed: 0'])
+            # 確保所有必要欄位都存在，且資料筆數不小於預設的 17 筆
             if all(col in temp_track.columns for col in expected_tracking_cols) and len(temp_track) >= len(default_tracking_data):
                 df_track = temp_track[expected_tracking_cols]
                 need_reset_track = False
