@@ -1,9 +1,12 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import io
 import os
 import time
+from datetime import datetime, timedelta, timezone
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+from sklearn.ensemble import RandomForestRegressor
 
 # ==========================================
 # 系統頁面設定 (企業專業風格)
@@ -14,7 +17,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 全家企業標準色 CSS 視覺設計 (藍 #0080C6 / 綠 #009B4C)
 st.markdown("""
 <style>
     .fm-top-bar {
@@ -38,12 +40,6 @@ st.markdown("""
         margin: 0;
         letter-spacing: 1px;
     }
-    .fm-subtitle {
-        color: #555555;
-        font-size: 14px;
-        font-weight: 500;
-        margin-top: 6px;
-    }
     .section-title {
         color: #0080C6;
         font-size: 20px;
@@ -56,7 +52,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 開場載入畫面 (無表情符號、俐落企業風)
+# 開場載入畫面
 # ==========================================
 if 'first_open' not in st.session_state:
     splash = st.empty()
@@ -70,21 +66,46 @@ if 'first_open' not in st.session_state:
             unsafe_allow_html=True
         )
         st.divider()
-        with st.spinner("系統正在初始化 AI 預測引擎與雲端資料庫，請稍候..."):
-            time.sleep(1.5)
+        with st.spinner("系統正在初始化 AI 預測引擎與資料庫，請稍候..."):
+            time.sleep(1.2)
     splash.empty()
     st.session_state['first_open'] = True
 
 # ==========================================
-# 資料庫初始化與自我修復機制 (更新至 10/22 完整資料)
+# 常數與基本設定
 # ==========================================
 HISTORY_FILE = 'history.csv'
 TRACKING_FILE = 'tracking.csv'
+PREDLOG_FILE = 'prediction_log.csv'
 
-expected_history_cols = ['Date', 'Is_Weekend', 'Is_Holiday', 'Is_PreHoliday', 'MainMeal', 'LightMeal', 'HotDeli', 'SoupFruit', 'Dessert']
+TW_TZ = timezone(timedelta(hours=8))  # 伺服器多為 UTC，一律以台灣時間判斷「今天／明天」
+TODAY_TW = datetime.now(TW_TZ).date()
+
+targets = ['MainMeal', 'LightMeal', 'HotDeli', 'SoupFruit', 'Dessert']
+target_names_zh = {
+    'MainMeal': '主食便當類',
+    'LightMeal': '輕食飯糰三明治',
+    'HotDeli': '小吃熟食類',
+    'SoupFruit': '湯品與截切水果',
+    'Dessert': '甜點與烘焙麵包'
+}
+WEEKDAY_ZH = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+
+expected_history_cols = ['Date', 'Is_Weekend', 'Is_Holiday', 'Is_PreHoliday'] + targets
 expected_tracking_cols = ['Date', 'Actual_Waste', 'Recorded_AI_Prediction']
+expected_predlog_cols = ['Date'] + targets + ['Total']
+FEATURES = ['Is_Weekend', 'Is_Holiday', 'Is_PreHoliday', 'Weekday']
 
-# 完整 33 筆歷史分類報廢資料 (已更新至 10/22 並按日期排序整理)
+# 國定假日／連假清單：請對照人事行政總處行事曆(含補假)自行維護，系統另提供手動覆寫
+HOLIDAYS = {pd.Timestamp(d).date() for d in [
+    '2026-09-25', '2026-09-26', '2026-09-27', '2026-09-28',
+    '2026-10-09', '2026-10-10', '2026-10-11',
+    '2026-10-25', '2026-12-25', '2027-01-01',
+]}
+
+# 品項平均進價(NT$/件)：僅為示意預設值，請改為門市實際進貨成本
+DEFAULT_COST = {'MainMeal': 45, 'LightMeal': 25, 'HotDeli': 30, 'SoupFruit': 25, 'Dessert': 22}
+
 default_history_data = [
     ['2026-09-02', 0, 0, 0, 5, 3, 0, 2, 4],
     ['2026-09-03', 0, 0, 0, 8, 4, 0, 1, 7],
@@ -121,91 +142,142 @@ default_history_data = [
     ['2026-10-22', 0, 0, 0, 2, 7, 0, 2, 2]
 ]
 
-# 完整 17 筆 MAE 追蹤資料 (已更新至 10/22 並按日期排序整理)
 default_tracking_data = [
-    ['2026-10-02', 18, 18],
-    ['2026-10-04', 26, 24],
-    ['2026-10-05', 13, 11],
-    ['2026-10-06', 27, 11],
-    ['2026-10-07', 13, 12],
-    ['2026-10-08', 13, 17],
-    ['2026-10-10', 26, 26],
-    ['2026-10-11', 18, 24],
-    ['2026-10-12', 6, 12],
-    ['2026-10-14', 10, 12],
-    ['2026-10-15', 17, 12],
-    ['2026-10-16', 27, 17],
-    ['2026-10-17', 28, 19],
-    ['2026-10-18', 10, 24],
-    ['2026-10-19', 8, 13],
-    ['2026-10-20', 14, 13],
-    ['2026-10-22', 13, 14]
+    ['2026-10-02', 18, 18], ['2026-10-04', 26, 24], ['2026-10-05', 13, 11],
+    ['2026-10-06', 27, 11], ['2026-10-07', 13, 12], ['2026-10-08', 13, 17],
+    ['2026-10-10', 26, 26], ['2026-10-11', 18, 24], ['2026-10-12', 6, 12],
+    ['2026-10-14', 10, 12], ['2026-10-15', 17, 12], ['2026-10-16', 27, 17],
+    ['2026-10-17', 28, 19], ['2026-10-18', 10, 24], ['2026-10-19', 8, 13],
+    ['2026-10-20', 14, 13], ['2026-10-22', 13, 14]
 ]
 
-def load_data():
-    # 檢查並修復 history.csv
-    need_reset_hist = True
-    if os.path.exists(HISTORY_FILE):
+
+# ==========================================
+# 資料存取工具
+# ==========================================
+def clean_by_date(df, cols):
+    """統一日期格式、數值型別，依日期去重(保留最後一筆)並排序。"""
+    df = df.copy()
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df = df.dropna(subset=['Date'])
+    df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
+    for c in cols[1:]:
+        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).round().astype(int)
+    df = df.drop_duplicates('Date', keep='last').sort_values('Date').reset_index(drop=True)
+    return df[cols]
+
+
+def load_or_seed(path, cols, default_rows):
+    """檔案不存在或欄位損毀才以預設資料重建；不再因筆數少於預設而強制還原(否則刪除紀錄會被復原)。"""
+    if os.path.exists(path):
         try:
-            temp_df = pd.read_csv(HISTORY_FILE)
-            if 'Unnamed: 0' in temp_df.columns:
-                temp_df = temp_df.drop(columns=['Unnamed: 0'])
-            # 確保所有必要欄位都存在，且資料筆數不小於預設的 33 筆
-            if all(col in temp_df.columns for col in expected_history_cols) and len(temp_df) >= len(default_history_data):
-                df_hist = temp_df[expected_history_cols]
-                need_reset_hist = False
+            df = pd.read_csv(path)
+            df = df.drop(columns=[c for c in df.columns if str(c).startswith('Unnamed')])
+            if all(c in df.columns for c in cols):
+                return clean_by_date(df[cols], cols)
         except Exception:
-            need_reset_hist = True
-            
-    if need_reset_hist:
-        df_hist = pd.DataFrame(default_history_data, columns=expected_history_cols)
-        df_hist.to_csv(HISTORY_FILE, index=False)
+            pass
+    df = clean_by_date(pd.DataFrame(default_rows, columns=cols), cols) if default_rows else pd.DataFrame(columns=cols)
+    df.to_csv(path, index=False)
+    return df
 
-    # 檢查並修復 tracking.csv
-    need_reset_track = True
-    if os.path.exists(TRACKING_FILE):
-        try:
-            temp_track = pd.read_csv(TRACKING_FILE)
-            if 'Unnamed: 0' in temp_track.columns:
-                temp_track = temp_track.drop(columns=['Unnamed: 0'])
-            # 確保所有必要欄位都存在，且資料筆數不小於預設的 17 筆
-            if all(col in temp_track.columns for col in expected_tracking_cols) and len(temp_track) >= len(default_tracking_data):
-                df_track = temp_track[expected_tracking_cols]
-                need_reset_track = False
-        except Exception:
-            need_reset_track = True
 
-    if need_reset_track:
-        df_track = pd.DataFrame(default_tracking_data, columns=expected_tracking_cols)
-        df_track.to_csv(TRACKING_FILE, index=False)
+def upsert_by_date(df, row, cols):
+    df = df[df['Date'] != row['Date']]
+    df = pd.concat([df, pd.DataFrame([row])[cols]], ignore_index=True)
+    return clean_by_date(df, cols)
 
-    return df_hist, df_track
 
-df_history, df_tracking = load_data()
+def save(df, path):
+    df.to_csv(path, index=False)
+
+
+df_history = load_or_seed(HISTORY_FILE, expected_history_cols, default_history_data)
+df_tracking = load_or_seed(TRACKING_FILE, expected_tracking_cols, default_tracking_data)
+df_predlog = load_or_seed(PREDLOG_FILE, expected_predlog_cols, [])
+
+if len(df_history) < 5:
+    st.error("歷史資料少於 5 筆，無法訓練模型，請先於側邊欄匯入或登錄資料。")
+    st.stop()
+
 
 # ==========================================
-# AI 隨機森林預測引擎訓練
+# 日曆特徵：依日期自動判斷（可手動覆寫）
 # ==========================================
-features = ['Is_Weekend', 'Is_Holiday', 'Is_PreHoliday']
-targets = ['MainMeal', 'LightMeal', 'HotDeli', 'SoupFruit', 'Dessert']
-target_names_zh = {
-    'MainMeal': '主食便當類',
-    'LightMeal': '輕食飯糰三明治',
-    'HotDeli': '小吃熟食類',
-    'SoupFruit': '湯品與截切水果',
-    'Dessert': '甜點與烘焙麵包'
-}
+def auto_calendar(d):
+    wk = int(d.weekday() >= 5)
+    hol = int(d in HOLIDAYS)
+    pre = int(d.weekday() == 4 or (d + timedelta(days=1)) in HOLIDAYS)
+    return wk, hol, pre
 
-models = {}
-X_train = df_history[features]
-for target in targets:
-    y_train = df_history[target]
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    models[target] = model
 
 # ==========================================
-# 網頁主畫面設計 (企業正式風格)
+# AI 隨機森林預測引擎
+# ==========================================
+def make_X(df):
+    X = df[['Is_Weekend', 'Is_Holiday', 'Is_PreHoliday']].copy()
+    X['Weekday'] = pd.to_datetime(df['Date']).dt.weekday
+    return X[FEATURES]
+
+
+def build_models(df, n_estimators=200, n_jobs=-1):
+    # 以 MAE 為評估指標，故用 absolute_error 準則(對單日極端值較不敏感)；
+    # min_samples_leaf=3 避免小樣本過度配適
+    X = make_X(df)
+    return {
+        t: RandomForestRegressor(
+            n_estimators=n_estimators, criterion='absolute_error',
+            min_samples_leaf=3, random_state=42, n_jobs=n_jobs
+        ).fit(X, df[t])
+        for t in targets
+    }
+
+
+@st.cache_resource(show_spinner=False)
+def get_models(csv_text):
+    return build_models(pd.read_csv(io.StringIO(csv_text)))
+
+
+def predict_day(models, wk, hol, pre, d):
+    X = pd.DataFrame([[wk, hol, pre, d.weekday()]], columns=FEATURES)
+    X_np = X.to_numpy(dtype=np.float32)
+    point, tree_sum = {}, 0
+    for t in targets:
+        m = models[t]
+        point[t] = max(0, int(round(m.predict(X)[0])))
+        tree_sum = tree_sum + np.array([e.predict(X_np)[0] for e in m.estimators_])
+    lo, hi = np.percentile(tree_sum, [10, 90])
+    return point, (int(round(lo)), int(round(hi)))
+
+
+@st.cache_data(show_spinner=False)
+def run_backtest(csv_text, start=10):
+    """滾動式回測：每天只用「當天以前」的資料訓練，再預測當天，與簡單基準比較。"""
+    df = pd.read_csv(io.StringIO(csv_text))
+    df['Total'] = df[targets].sum(axis=1)
+    rows = []
+    for i in range(start, len(df)):
+        tr, te = df.iloc[:i], df.iloc[[i]]
+        ms = build_models(tr, n_estimators=60, n_jobs=None)
+        X = make_X(te)
+        rows.append({
+            'Date': te['Date'].iloc[0],
+            'Actual': te['Total'].iloc[0],
+            'Model': sum(m.predict(X)[0] for m in ms.values()),
+            'Mean': tr['Total'].mean(),
+            'MA7': tr['Total'].tail(7).mean(),
+        })
+    return pd.DataFrame(rows)
+
+
+def mae(a, b):
+    return float(np.mean(np.abs(np.asarray(a) - np.asarray(b))))
+
+
+models = get_models(df_history.to_csv(index=False))
+
+# ==========================================
+# 網頁主畫面
 # ==========================================
 st.markdown("<div class='fm-top-bar'></div>", unsafe_allow_html=True)
 st.markdown("""
@@ -222,44 +294,115 @@ col1, col2 = st.columns([1, 1], gap="large")
 
 # --- 左半邊：AI 預測引擎 ---
 with col1:
-    st.markdown("<div class='section-title'>明日門市報廢量預測</div>", unsafe_allow_html=True)
-    st.caption("請設定明日之日曆與營運特徵，系統將透過模型估算各品項預期報廢量。")
-    
-    with st.form("predict_form"):
-        p_wk = st.selectbox("是否為週末 (週六、週日)", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
-        p_hol = st.selectbox("是否為國定連假期間", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
-        p_pre = st.selectbox("是否為連假前夕(含星期五)", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
-        submit_predict = st.form_submit_button("執行智能預測運算", use_container_width=True)
-        
-    if submit_predict:
-        future_X = pd.DataFrame([[p_wk, p_hol, p_pre]], columns=features)
-        pred_results = {t: int(round(models[t].predict(future_X)[0])) for t in targets}
-        total_pred = sum(pred_results.values())
-        
-        st.info(f"系統預估明日總報廢量：**{total_pred} 件**")
+    st.markdown("<div class='section-title'>門市報廢量預測</div>", unsafe_allow_html=True)
+    st.caption("選擇預測日期後，系統依台灣假日自動判斷日曆特徵，可手動覆寫。")
+
+    p_date = st.date_input("預測日期", value=TODAY_TW + timedelta(days=1), key="p_date")
+    a_wk, a_hol, a_pre = auto_calendar(p_date)
+    st.caption(f"{p_date} {WEEKDAY_ZH[p_date.weekday()]}｜自動判斷：週末={'是' if a_wk else '否'}、"
+               f"連假={'是' if a_hol else '否'}、連假前夕={'是' if a_pre else '否'}")
+    c1, c2, c3 = st.columns(3)
+    p_wk = c1.checkbox("週末", value=bool(a_wk), key=f"p_wk_{p_date}")
+    p_hol = c2.checkbox("國定連假", value=bool(a_hol), key=f"p_hol_{p_date}")
+    p_pre = c3.checkbox("連假前夕(含週五)", value=bool(a_pre), key=f"p_pre_{p_date}")
+
+    if st.button("執行智能預測運算", use_container_width=True, type="primary"):
+        point, (lo, hi) = predict_day(models, int(p_wk), int(p_hol), int(p_pre), p_date)
+        st.session_state['last_pred'] = {
+            'date': str(p_date), 'point': point, 'range': (lo, hi)
+        }
+        # 自動記錄「事前預測」：僅限尚未有實際資料的日期，避免事後預測污染驗證
+        if str(p_date) not in set(df_history['Date']):
+            row = {'Date': str(p_date), **point, 'Total': sum(point.values())}
+            df_predlog = upsert_by_date(df_predlog, row, expected_predlog_cols)
+            save(df_predlog, PREDLOG_FILE)
+            st.session_state['logged'] = True
+        else:
+            st.session_state['logged'] = False
+
+    lp = st.session_state.get('last_pred')
+    if lp:
+        point, (lo, hi) = lp['point'], lp['range']
+        total_pred = sum(point.values())
+        cost_map = {t: st.session_state.get(f'cost_{t}', DEFAULT_COST[t]) for t in targets}
+        est_cost = sum(point[t] * cost_map[t] for t in targets)
+
+        st.info(f"{lp['date']} 預估總報廢量：**{total_pred} 件**"
+                f"（參考區間 {lo}–{hi} 件）｜預估報廢成本約 NT$ {est_cost:,}")
+        if st.session_state.get('logged'):
+            st.caption("已自動記錄此預測；待當日實際報廢登錄後，將自動納入準確度驗證。")
+        elif lp['date'] in set(df_history['Date']):
+            st.caption("該日期已有實際資料，此次預測不列入驗證紀錄。")
+
         cols = st.columns(5)
         for idx, t in enumerate(targets):
-            cols[idx].metric(label=target_names_zh[t], value=f"{pred_results[t]} 件")
+            cols[idx].metric(label=target_names_zh[t], value=f"{point[t]} 件")
 
-# --- 右半邊：真實 MAE 驗證指標 ---
+        # 各品項風險與建議行動
+        risk_rows = []
+        for t in targets:
+            hist_mean = float(df_history[t].mean())
+            ratio = point[t] / max(hist_mean, 0.5)
+            if point[t] >= 3 and ratio >= 1.3:
+                level, act = "偏高", "建議下修訂貨量；晚班提前啟動即期品折扣(如友善食光)或評估捐贈"
+            elif ratio <= 0.7:
+                level, act = "偏低", "報廢風險低，留意是否反而有缺貨之機會損失"
+            else:
+                level, act = "正常", "維持現行訂貨量，持續觀察"
+            risk_rows.append({
+                '品項': target_names_zh[t], '預測(件)': point[t],
+                '歷史平均(件)': round(hist_mean, 1), '風險': level, '建議行動': act
+            })
+        st.dataframe(pd.DataFrame(risk_rows), use_container_width=True, hide_index=True)
+
+    with st.expander("品項平均進價設定（用於估算報廢成本）"):
+        st.caption("預設值僅為示意，請改為門市實際進貨成本。")
+        for t in targets:
+            st.number_input(f"{target_names_zh[t]} (NT$/件)", min_value=0, value=DEFAULT_COST[t],
+                            key=f"cost_{t}")
+
+# --- 右半邊：模型準確度驗證 ---
 with col2:
-    st.markdown("<div class='section-title'>模型預測準確度驗證 (MAE 追蹤)</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='section-title'>模型預測準確度驗證</div>", unsafe_allow_html=True)
+
     if not df_tracking.empty:
-        df_tracking['Abs_Error'] = (df_tracking['Actual_Waste'] - df_tracking['Recorded_AI_Prediction']).abs()
-        current_mae = df_tracking['Abs_Error'].mean()
-        
-        m_col1, m_col2 = st.columns(2)
-        m_col1.metric(label="目前累積平均絕對誤差 (MAE)", value=f"{current_mae:.2f} 件")
-        m_col2.metric(label="累計實測驗證天數", value=f"{len(df_tracking)} 天")
-        
-        chart_data = df_tracking.set_index('Date')[['Actual_Waste', 'Recorded_AI_Prediction']].rename(
-            columns={'Actual_Waste': '門市實際報廢量', 'Recorded_AI_Prediction': 'AI 系統預測量'}
-        )
-        # 採用全家企業藍與永續綠繪製折線圖
+        trk = df_tracking.copy()
+        err = trk['Recorded_AI_Prediction'] - trk['Actual_Waste']
+        m_mae = err.abs().mean()
+        m_bias = err.mean()
+        m_wmape = err.abs().sum() / max(trk['Actual_Waste'].sum(), 1) * 100
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("平均絕對誤差 MAE", f"{m_mae:.2f} 件")
+        m2.metric("平均偏差", f"{m_bias:+.2f} 件", help="正值＝系統平均高估；負值＝平均低估")
+        m3.metric("WMAPE", f"{m_wmape:.1f}%", help="總絕對誤差 ÷ 總實際報廢量，不受單日極端值放大")
+        m4.metric("驗證天數", f"{len(trk)} 天")
+
+        chart_data = trk.assign(Date=pd.to_datetime(trk['Date'])).set_index('Date')[
+            ['Actual_Waste', 'Recorded_AI_Prediction']
+        ].rename(columns={'Actual_Waste': '門市實際報廢量', 'Recorded_AI_Prediction': 'AI 系統預測量'})
         st.line_chart(chart_data, color=["#0080C6", "#009B4C"])
     else:
         st.warning("目前尚無驗證資料。")
+
+    with st.expander("回測：模型是否真的比簡單平均更準？"):
+        st.caption("滾動式回測：每一天都只用「當天以前」的資料訓練後預測當天，結果不需手動登錄，且不含未來資訊。")
+        if st.checkbox("執行回測（約數秒）", key="run_bt"):
+            if len(df_history) < 14:
+                st.info("資料不足 14 筆，暫無法回測。")
+            else:
+                bt = run_backtest(df_history.to_csv(index=False))
+                b1, b2, b3 = st.columns(3)
+                mm, mb, m7 = mae(bt['Actual'], bt['Model']), mae(bt['Actual'], bt['Mean']), mae(bt['Actual'], bt['MA7'])
+                b1.metric("本模型 MAE", f"{mm:.2f} 件", delta=f"{mm - mb:+.2f} vs 歷史平均", delta_color="inverse")
+                b2.metric("基準：歷史平均", f"{mb:.2f} 件")
+                b3.metric("基準：近7筆平均", f"{m7:.2f} 件")
+                st.caption(f"回測樣本 {len(bt)} 天。若模型沒有明顯優於簡單平均，代表目前特徵"
+                           "(週末／連假／星期)尚不足以解釋報廢變動，需補充訂貨量、天氣、檔期等資料。")
+                st.line_chart(
+                    bt.assign(Date=pd.to_datetime(bt['Date'])).set_index('Date')[['Actual', 'Model', 'Mean']]
+                    .rename(columns={'Actual': '實際', 'Model': '模型回測預測', 'Mean': '歷史平均基準'})
+                )
 
 st.divider()
 
@@ -267,93 +410,155 @@ st.divider()
 # 側邊欄：門市數據登錄中心
 # ==========================================
 st.sidebar.markdown("### 門市數據登錄中心")
-st.sidebar.caption("請於每日晚班打烊結算後，於此處登錄當日實際報廢數據以利模型持續重新訓練。")
+st.sidebar.caption("請於每日晚班打烊結算後，登錄當日實際報廢數據。同一日期重複登錄會覆蓋舊資料。")
 
-# 1. 新增歷史分類報廢
-with st.sidebar.expander("新增當日分類報廢紀錄"):
-    with st.form("history_form"):
-        h_date = st.date_input("結算日期")
-        h_wk = st.selectbox("是否為週末", [0, 1], key='h1', format_func=lambda x: "是" if x == 1 else "否")
-        h_hol = st.selectbox("是否為連假", [0, 1], key='h2', format_func=lambda x: "是" if x == 1 else "否")
-        h_pre = st.selectbox("是否為連假前夕(含星期五)", [0, 1], key='h3', format_func=lambda x: "是" if x == 1 else "否")
-        h_main = st.number_input("主食便當類 (件)", min_value=0, value=0)
-        h_light = st.number_input("輕食飯糰三明治 (件)", min_value=0, value=0)
-        h_hot = st.number_input("小吃熟食類 (件)", min_value=0, value=0)
-        h_soup = st.number_input("湯品與截切水果 (件)", min_value=0, value=0)
-        h_dessert = st.number_input("甜點與烘焙麵包 (件)", min_value=0, value=0)
-        
-        if st.form_submit_button("寫入資料庫並重新訓練模型", use_container_width=True):
-            new_row = [str(h_date), h_wk, h_hol, h_pre, h_main, h_light, h_hot, h_soup, h_dessert]
-            df_history.loc[len(df_history)] = new_row
-            df_history.to_csv(HISTORY_FILE, index=False)
-            st.success("歷史分類資料已同步更新。")
-            time.sleep(0.5)
-            st.rerun()
-            
-    if st.button("刪除最後一筆歷史紀錄", use_container_width=True):
-        if len(df_history) > 1:
-            df_history = df_history.iloc[:-1]
-            df_history.to_csv(HISTORY_FILE, index=False)
-            st.success("已刪除最後一筆歷史紀錄。")
-            time.sleep(0.5)
-            st.rerun()
+# 1. 新增／更新當日分類報廢
+with st.sidebar.expander("新增／更新當日分類報廢紀錄"):
+    h_date = st.date_input("結算日期", value=TODAY_TW, key="h_date")
+    existing = df_history[df_history['Date'] == str(h_date)]
+    if not existing.empty:
+        st.caption("此日期已有紀錄，儲存後將覆蓋。")
+        e = existing.iloc[0]
+        d_wk, d_hol, d_pre = int(e['Is_Weekend']), int(e['Is_Holiday']), int(e['Is_PreHoliday'])
+        d_vals = {t: int(e[t]) for t in targets}
+    else:
+        d_wk, d_hol, d_pre = auto_calendar(h_date)
+        d_vals = {t: 0 for t in targets}
 
-# 2. 新增 MAE 對決戰績
-with st.sidebar.expander("新增每日預測誤差驗證紀錄"):
-    with st.form("tracking_form"):
-        t_date = st.date_input("驗證日期")
-        t_actual = st.number_input("當日實際總報廢量 (件)", min_value=0, value=0)
-        t_pred = st.number_input("系統預估總報廢量 (件)", min_value=0, value=0)
-        
-        if st.form_submit_button("寫入驗證紀錄", use_container_width=True):
-            new_track = [str(t_date), t_actual, t_pred]
-            df_tracking = df_tracking[expected_tracking_cols]
-            df_tracking.loc[len(df_tracking)] = new_track
-            df_tracking.to_csv(TRACKING_FILE, index=False)
-            st.success("驗證紀錄已同步更新。")
-            time.sleep(0.5)
-            st.rerun()
+    k = str(h_date)  # 以日期作為 key，換日期時預設值才會跟著更新
+    h_wk = st.checkbox("週末", value=bool(d_wk), key=f"h_wk_{k}")
+    h_hol = st.checkbox("國定連假", value=bool(d_hol), key=f"h_hol_{k}")
+    h_pre = st.checkbox("連假前夕(含週五)", value=bool(d_pre), key=f"h_pre_{k}")
+    h_vals = {t: st.number_input(f"{target_names_zh[t]} (件)", min_value=0, value=d_vals[t], key=f"h_{t}_{k}")
+              for t in targets}
 
-    if st.button("刪除最後一筆驗證紀錄", use_container_width=True):
-        if len(df_tracking) > 1:
-            df_tracking = df_tracking[expected_tracking_cols].iloc[:-1]
-            df_tracking.to_csv(TRACKING_FILE, index=False)
-            st.success("已刪除最後一筆驗證紀錄。")
-            time.sleep(0.5)
-            st.rerun()
+    h_total = sum(h_vals.values())
+    hist_totals = df_history[targets].sum(axis=1)
+    if h_total > hist_totals.max():
+        st.warning(f"本日合計 {h_total} 件，高於歷史最高 {int(hist_totals.max())} 件；"
+                   "請確認是否為單次異常(如商品下架、配送異常、檔期結束)，並建議另行註記。")
+
+    if st.button("寫入資料庫並重新訓練模型", use_container_width=True, key="btn_hist"):
+        row = {'Date': str(h_date), 'Is_Weekend': int(h_wk), 'Is_Holiday': int(h_hol),
+               'Is_PreHoliday': int(h_pre), **h_vals}
+        df_history = upsert_by_date(df_history, row, expected_history_cols)
+        save(df_history, HISTORY_FILE)
+
+        msg = "歷史分類資料已同步更新。"
+        logged = df_predlog[df_predlog['Date'] == str(h_date)]
+        if not logged.empty:  # 有事前預測紀錄 → 自動進入驗證
+            trow = {'Date': str(h_date), 'Actual_Waste': h_total,
+                    'Recorded_AI_Prediction': int(logged.iloc[0]['Total'])}
+            df_tracking = upsert_by_date(df_tracking, trow, expected_tracking_cols)
+            save(df_tracking, TRACKING_FILE)
+            msg += " 已自動比對事前預測並寫入驗證紀錄。"
+        st.success(msg)
+        time.sleep(0.8)
+        st.rerun()
+
+# 2. 手動補登驗證紀錄
+with st.sidebar.expander("手動補登預測誤差驗證紀錄"):
+    st.caption("一般情況下系統會自動產生；此處僅供補登舊資料。")
+    t_date = st.date_input("驗證日期", value=TODAY_TW, key="t_date")
+    t_actual = st.number_input("當日實際總報廢量 (件)", min_value=0, value=0, key="t_actual")
+    t_pred = st.number_input("系統預估總報廢量 (件)", min_value=0, value=0, key="t_pred")
+    if st.button("寫入驗證紀錄", use_container_width=True, key="btn_trk"):
+        df_tracking = upsert_by_date(
+            df_tracking, {'Date': str(t_date), 'Actual_Waste': t_actual, 'Recorded_AI_Prediction': t_pred},
+            expected_tracking_cols)
+        save(df_tracking, TRACKING_FILE)
+        st.success("驗證紀錄已同步更新。")
+        time.sleep(0.8)
+        st.rerun()
+
+# 3. 刪除指定日期
+with st.sidebar.expander("刪除指定日期的紀錄"):
+    which = st.radio("資料類型", ["歷史分類報廢", "預測誤差驗證"], key="del_which")
+    src = df_history if which == "歷史分類報廢" else df_tracking
+    if len(src) > 0:
+        del_date = st.selectbox("選擇日期", sorted(src['Date'], reverse=True), key="del_date")
+        sure = st.checkbox("我確認要刪除此日期的紀錄", key="del_sure")
+        if st.button("刪除", use_container_width=True, key="btn_del"):
+            if not sure:
+                st.warning("請先勾選確認。")
+            elif which == "歷史分類報廢" and len(df_history) <= 5:
+                st.warning("歷史資料至少需保留 5 筆。")
+            else:
+                if which == "歷史分類報廢":
+                    df_history = df_history[df_history['Date'] != del_date].reset_index(drop=True)
+                    save(df_history, HISTORY_FILE)
+                else:
+                    df_tracking = df_tracking[df_tracking['Date'] != del_date].reset_index(drop=True)
+                    save(df_tracking, TRACKING_FILE)
+                st.success("已刪除。")
+                time.sleep(0.8)
+                st.rerun()
+
+# 4. 匯入還原
+with st.sidebar.expander("匯入備份 CSV（還原／合併資料）"):
+    st.caption("伺服器重啟後本機 CSV 可能還原為內建資料，請定期下載備份，需要時由此匯入。同日期以匯入檔為準。")
+    up_h = st.file_uploader("歷史分類報廢資料 CSV", type="csv", key="up_h")
+    up_t = st.file_uploader("預測誤差驗證資料 CSV", type="csv", key="up_t")
+    if st.button("匯入並合併", use_container_width=True, key="btn_imp"):
+        done = []
+        try:
+            if up_h is not None:
+                new_h = pd.read_csv(up_h)
+                new_h = new_h.drop(columns=[c for c in new_h.columns if str(c).startswith('Unnamed')])
+                if not all(c in new_h.columns for c in expected_history_cols):
+                    raise ValueError("歷史資料欄位不符")
+                df_history = clean_by_date(pd.concat([df_history, new_h[expected_history_cols]]), expected_history_cols)
+                save(df_history, HISTORY_FILE)
+                done.append(f"歷史資料 {len(new_h)} 筆")
+            if up_t is not None:
+                new_t = pd.read_csv(up_t)
+                new_t = new_t.drop(columns=[c for c in new_t.columns if str(c).startswith('Unnamed')])
+                if not all(c in new_t.columns for c in expected_tracking_cols):
+                    raise ValueError("驗證資料欄位不符")
+                df_tracking = clean_by_date(pd.concat([df_tracking, new_t[expected_tracking_cols]]), expected_tracking_cols)
+                save(df_tracking, TRACKING_FILE)
+                done.append(f"驗證資料 {len(new_t)} 筆")
+            if done:
+                st.success("已匯入：" + "、".join(done))
+                time.sleep(0.8)
+                st.rerun()
+            else:
+                st.info("尚未選擇檔案。")
+        except Exception as ex:
+            st.error(f"匯入失敗：{ex}")
 
 # ==========================================
 # 底部區塊：資料庫檢視與備份匯出
 # ==========================================
-st.markdown("<div class='section-title'>雲端資料庫明細與備份管理</div>", unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["歷史分類報廢資料庫 (模型訓練集)", "預測誤差驗證資料庫 (MAE 追蹤集)"])
+st.markdown("<div class='section-title'>資料庫明細與備份管理</div>", unsafe_allow_html=True)
+st.caption("提醒：部署於 Streamlit Community Cloud 時，本機 CSV 在重啟後會還原；請定期下載備份，"
+           "長期使用建議改接 Google Sheets 或雲端資料庫。")
+tab1, tab2, tab3 = st.tabs(["歷史分類報廢資料庫 (模型訓練集)", "預測誤差驗證資料庫", "事前預測紀錄"])
 
 with tab1:
-    display_hist = df_history.rename(columns={
+    display_hist = df_history.copy()
+    display_hist.insert(1, '星期', pd.to_datetime(display_hist['Date']).dt.weekday.map(lambda i: WEEKDAY_ZH[i]))
+    display_hist['合計'] = display_hist[targets].sum(axis=1)
+    display_hist = display_hist.rename(columns={
         'Date': '日期', 'Is_Weekend': '週末', 'Is_Holiday': '連假', 'Is_PreHoliday': '連假前夕',
-        'MainMeal': '主食便當類', 'LightMeal': '輕食飯糰三明治', 'HotDeli': '小吃熟食類',
-        'SoupFruit': '湯品與截切水果', 'Dessert': '甜點與烘焙麵包'
+        **target_names_zh
     })
-    st.dataframe(display_hist, use_container_width=True)
-    csv_hist = df_history.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="下載歷史分類報廢資料 (CSV)",
-        data=csv_hist,
-        file_name="familymart_history_export.csv",
-        mime="text/csv"
-    )
+    st.dataframe(display_hist, use_container_width=True, hide_index=True)
+    st.download_button("下載歷史分類報廢資料 (CSV)", df_history.to_csv(index=False).encode('utf-8-sig'),
+                       file_name="familymart_history_export.csv", mime="text/csv")
 
 with tab2:
-    display_track = df_tracking[expected_tracking_cols].copy()
-    display_track['絕對誤差 (件)'] = (display_track['Actual_Waste'] - display_track['Recorded_AI_Prediction']).abs()
+    display_track = df_tracking.copy()
+    display_track['誤差 (預測-實際)'] = display_track['Recorded_AI_Prediction'] - display_track['Actual_Waste']
+    display_track['絕對誤差 (件)'] = display_track['誤差 (預測-實際)'].abs()
     display_track = display_track.rename(columns={
-        'Date': '日期', 'Actual_Waste': '實際總報廢量', 'Recorded_AI_Prediction': 'AI 預估總報廢量'
-    })
-    st.dataframe(display_track, use_container_width=True)
-    csv_track = df_tracking[expected_tracking_cols].to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="下載預測誤差驗證資料 (CSV)",
-        data=csv_track,
-        file_name="familymart_mae_export.csv",
-        mime="text/csv"
-    )
+        'Date': '日期', 'Actual_Waste': '實際總報廢量', 'Recorded_AI_Prediction': 'AI 預估總報廢量'})
+    st.dataframe(display_track, use_container_width=True, hide_index=True)
+    st.download_button("下載預測誤差驗證資料 (CSV)", df_tracking.to_csv(index=False).encode('utf-8-sig'),
+                       file_name="familymart_mae_export.csv", mime="text/csv")
+
+with tab3:
+    display_log = df_predlog.rename(columns={'Date': '預測日期', 'Total': '預測合計', **target_names_zh})
+    st.dataframe(display_log, use_container_width=True, hide_index=True)
+    st.download_button("下載事前預測紀錄 (CSV)", df_predlog.to_csv(index=False).encode('utf-8-sig'),
+                       file_name="familymart_prediction_log.csv", mime="text/csv")
