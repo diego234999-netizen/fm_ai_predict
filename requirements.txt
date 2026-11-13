@@ -1,3 +1,6 @@
 streamlit
 pandas
 scikit-learn
+google-generativeai
+requests
+Pillow
