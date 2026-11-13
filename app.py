@@ -231,8 +231,11 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
     }
     """
     try:
+        img_resized= image.convert("RGB)
+        img_resized.thumbnail((1024, 1024))
         buf = io.BytesIO()
-        image.convert("RGB").save(buf, format="JPEG")
+        img_resized.save(buf, format="JPEG", quality=85)
+
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
         base = "https://generativelanguage" + ".googleapis.com"
@@ -251,7 +254,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
                 ]
             }]
         }
-        res = requests.post(url, headers=headers, json=payload, timeout=30)
+        res = requests.post(url, headers=headers, json=payload, timeout=90)
         res.raise_for_status()
         res_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
         clean_json = res_text.strip().replace('```json', '').replace('```', '').strip()
