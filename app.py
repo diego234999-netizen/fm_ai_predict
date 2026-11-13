@@ -230,12 +230,15 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
       "Items_Summary": "簡短列出辨識到的商品與數量"
     }
     """
-        try:
+    try:
         buf = io.BytesIO()
         image.convert("RGB").save(buf, format="JPEG")
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-        url = "https://googleapis.com"
+        base = "https://generativelanguage" + ".googleapis.com"
+        path = "/v1beta/models/gemini-3.8-flash:generateContent"
+        url = base + path
+
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": gemini_api_key.strip()
