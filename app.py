@@ -231,7 +231,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
     }
     """
     try:
-        img_resized= image.convert("RGB)
+        img_resized= image.convert("RGB")
         img_resized.thumbnail((1024, 1024))
         buf = io.BytesIO()
         img_resized.save(buf, format="JPEG", quality=85)
