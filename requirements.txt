@@ -1,6 +1,6 @@
 streamlit
 pandas
 scikit-learn
-google-generativeai
+google-genai
 requests
 Pillow
