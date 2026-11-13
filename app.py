@@ -230,7 +230,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
       "Items_Summary": "簡短列出辨識到的商品與數量"
     }
     """
-      try:
+    try:
         img_resized = image.convert("RGB")
         img_resized.thumbnail((1024, 1024))
         buf = io.BytesIO()
