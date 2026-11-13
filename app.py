@@ -239,9 +239,6 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
         base = "https://generativelanguage" + ".googleapis.com"
-        path = "/v1beta/models/gemini-3.8-flash:generateContent"
-        url = base + path
-
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": gemini_api_key.strip()
@@ -254,8 +251,14 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
                 ]
             }]
         }
-        res = requests.post(url, headers=headers, json=payload, timeout=90)
+        res = None
+        for m_name in ["gemini-3.8-flash", "gemini-3.8-flash-lite"]:
+            url = base + f"/v1beta/models/{m_name}:generateContent"
+            res = requests.post(url, headers=headers, json=payload, timeout=90)
+            if res.status_code != 503:
+                break
         res.raise_for_status()
+
         res_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
         clean_json = res_text.strip().replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
