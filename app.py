@@ -237,6 +237,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
         img_resized.save(buf, format="JPEG", quality=85)
 
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        base = "https://generativelanguage" + ".googleapis.com"
 
         models_res = requests.get(base + "/v1beta/models", headers=headers, timeout=15)
         available = []
