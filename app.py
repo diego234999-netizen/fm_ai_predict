@@ -262,8 +262,9 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
                     name = m["name"].replace("models/", "")
                     if "gemini" in name and "embedding" not in name and "tts" not in name:
                         available.append(name)
-        flash_models = [m for m in available if "flash" in m and m != "gemini-3.8-flash"]
-        candidates = ["gemini-3.8-flash"] + flash_models
+        priority = ["gemini-3.8-flash", "gemini-2.5-flash"]
+        others = [m for m in available if "flash" in m and m not in priority]
+        candidates = priority + others
 
         
         res = None
