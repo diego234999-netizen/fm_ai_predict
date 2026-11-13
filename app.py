@@ -230,14 +230,26 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
       "Items_Summary": "簡短列出辨識到的商品與數量"
     }
     """
-    try:
-        img_resized= image.convert("RGB")
+      try:
+        img_resized = image.convert("RGB")
         img_resized.thumbnail((1024, 1024))
         buf = io.BytesIO()
         img_resized.save(buf, format="JPEG", quality=85)
-
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
         base = "https://generativelanguage" + ".googleapis.com"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": gemini_api_key.strip()
+        }
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                ]
+            }]
+        }
 
         models_res = requests.get(base + "/v1beta/models", headers=headers, timeout=15)
         available = []
@@ -266,6 +278,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
         return json.loads(clean_json)
     except Exception as e:
         raise RuntimeError(f"AI 模型呼叫失敗：{e}")
+
 
 
 
