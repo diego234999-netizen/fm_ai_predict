@@ -265,17 +265,25 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
         flash_models = [m for m in available if "flash" in m and m != "gemini-3.8-flash"]
         candidates = ["gemini-3.8-flash"] + flash_models
 
+        
         res = None
-        for m_name in candidates:
+        last_err = None
+        for m_name in candidates[:3]:
             url = base + f"/v1beta/models/{m_name}:generateContent"
             for _ in range(2):
-                res = requests.post(url, headers=headers, json=payload, timeout=90)
-                if res.status_code != 503:
-                    break
-                time.sleep(2)
-            if res.status_code == 200:
+                try:
+                    res = requests.post(url, headers=headers, json=payload, timeout=25)
+                    if res.status_code == 200:
+                        break
+                except requests.exceptions.Timeout as te:
+                    last_err = te
+                time.sleep(1)
+            if res is not None and res.status_code == 200:
                 break
+        if res is None:
+            raise last_err
         res.raise_for_status()
+
 
         res_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
         clean_json = res_text.strip().replace('```json', '').replace('```', '').strip()
