@@ -238,24 +238,25 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
 
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-        base = "https://generativelanguage" + ".googleapis.com"
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": gemini_api_key.strip()
-        }
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
-                ]
-            }]
-        }
+        models_res = requests.get(base + "/v1beta/models", headers=headers, timeout=15)
+        available = []
+        if models_res.status_code == 200:
+            for m in models_res.json().get("models", []):
+                if "generateContent" in m.get("supportedGenerationMethods", []):
+                    name = m["name"].replace("models/", "")
+                    if "gemini" in name and "embedding" not in name and "tts" not in name:
+                        available.append(name)
+        candidates = ["gemini-3.8-flash"] + [m for m in available if m != "gemini-3.8-flash"]
+
         res = None
-        for m_name in ["gemini-3.8-flash", "gemini-3.8-flash-lite"]:
+        for m_name in candidates:
             url = base + f"/v1beta/models/{m_name}:generateContent"
-            res = requests.post(url, headers=headers, json=payload, timeout=90)
-            if res.status_code != 503:
+            for _ in range(2):
+                res = requests.post(url, headers=headers, json=payload, timeout=90)
+                if res.status_code != 503:
+                    break
+                time.sleep(2)
+            if res.status_code == 200:
                 break
         res.raise_for_status()
 
