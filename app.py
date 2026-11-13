@@ -386,14 +386,16 @@ def make_X(df):
     X['Weekday'] = pd.to_datetime(df['Date']).dt.weekday
     return X[FEATURES]
 
-
 def build_models(df, n_estimators=200, n_jobs=-1):
     X = make_X(df)
+    dates = pd.to_datetime(df['Date'])
+    days_diff = (dates.max() - dates).dt.days
+    weights = np.exp(-0.03 * days_diff)
     return {
         t: RandomForestRegressor(
             n_estimators=n_estimators, criterion='absolute_error',
-            min_samples_leaf=3, random_state=42, n_jobs=n_jobs
-        ).fit(X, df[t])
+            min_samples_leaf=2, random_state=42, n_jobs=n_jobs
+        ).fit(X, df[t], sample_weight=weights)
         for t in targets
     }
 
