@@ -234,9 +234,9 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
          response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[ prompt,image]
-        )
-        clean_json = response.text.strip().replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_json)
+         )
+         clean_json = response.text.strip().replace('```json', '').replace('```', '').strip()
+         return json.loads(clean_json)
     except Exception as e:
         raise RuntimeError(f"AI 模型呼叫失敗：{e}")
 
