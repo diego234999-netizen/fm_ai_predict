@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from PIL import Image
-import google.generativeai as genai
+from google import genai
 from sklearn.ensemble import RandomForestRegressor
 
 # ==========================================
@@ -209,7 +209,7 @@ def get_weather_for_date(target_date):
 
 def analyze_waste_photo_with_gemini(image, gemini_api_key):
     """使用 Google Gemini 視覺模型自動辨識報廢明細照片並歸類為五大類別"""
-    genai.configure(api_key=gemini_api_key.strip())
+   
     prompt = """
     這是一張全家便利商店的報廢明細（小白單、螢幕畫面或手寫紀錄）或剩食照片。
     請自動辨識裡面的商品名稱與數量，並將其分類加總為以下五大類：
@@ -229,19 +229,16 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
       "Items_Summary": "簡短列出辨識到的商品與數量"
     }
     """
-    # 自動嘗試最新可用模型，確保報告 Demo 穩定不報錯
-    model_candidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
-    last_err = None
-    for m_name in model_candidates:
-        try:
-            model = genai.GenerativeModel(m_name)
-            response = model.generate_content([prompt, image])
-            clean_json = response.text.strip().replace('```json', '').replace('```', '').strip()
-            return json.loads(clean_json)
-        except Exception as e:
-            last_err = e
-            continue
-    raise RuntimeError(f"AI 模型呼叫失敗：{last_err}")
+    try:
+         client = genai.Client(api_key=gemini_api_key.strip())
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[ prompt,image]
+        )
+        clean_json = response.text.strip().replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
+    except Exception as e:
+        raise RuntimeError(f"AI 模型呼叫失敗：{e}")
 
 
 # ==========================================
