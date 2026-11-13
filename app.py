@@ -231,7 +231,7 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
     """
     try:
          client = genai.Client(api_key=gemini_api_key.strip())
-        response = client.models.generate_content(
+         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[ prompt,image]
         )
