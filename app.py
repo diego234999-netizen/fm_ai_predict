@@ -3,6 +3,7 @@ import os
 import time
 import json
 import requests
+import base64
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -229,16 +230,32 @@ def analyze_waste_photo_with_gemini(image, gemini_api_key):
       "Items_Summary": "簡短列出辨識到的商品與數量"
     }
     """
-    try:
-         client = genai.Client(api_key=gemini_api_key.strip())
-         response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=[ prompt,image]
-         )
-         clean_json = response.text.strip().replace('```json', '').replace('```', '').strip()
-         return json.loads(clean_json)
+        try:
+        buf = io.BytesIO()
+        image.convert("RGB").save(buf, format="JPEG")
+        img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        url = "https://googleapis.com"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": gemini_api_key.strip()
+        }
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                ]
+            }]
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=30)
+        res.raise_for_status()
+        res_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+        clean_json = res_text.strip().replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
     except Exception as e:
         raise RuntimeError(f"AI 模型呼叫失敗：{e}")
+
 
 
 # ==========================================
